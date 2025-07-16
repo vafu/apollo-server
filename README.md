@@ -2,6 +2,8 @@
 
 A multi-source media state aggregator and processor, designed to be a single source of truth for a client display board.
 
+[!image demo](.misc/led_demo.jpg)
+
 ---
 ## Overview
 
