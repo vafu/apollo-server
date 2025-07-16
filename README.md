@@ -1,8 +1,6 @@
 # Apollo Media State Service
 
-A multi-source media state aggregator and processor, designed to be a single source of truth for a client display board.
-
-[!image demo](.misc/led_demo.jpg)
+A multi-source media state aggregator and processor, designed to be a single source of truth for a [client display board](https://github.com/vafu/apollo-led-panel).
 
 ---
 ## Overview
@@ -11,7 +9,7 @@ The Apollo service is a Python application that runs on a central server (e.g., 
 
 It is architected to be modular, allowing for different player "plugins" to be added. Currently, it supports listening to Shairport Sync (for AirPlay) by reading its metadata pipe. The architecture is in place to support MPD and UPnP renderers as well.
 
-In addition to state tracking, the service also processes album art by downloading the original image, resizing it, and caching it as a standard JPEG. It then serves these cached images on demand via a simple HTTP endpoint.
+In addition to state tracking, the service also processes album art by downloading the original image, resizing it to fit the boards resolution, and caching it. It then serves these cached images on demand via a simple HTTP endpoint.
 
 ---
 ## Features
