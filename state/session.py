@@ -26,15 +26,15 @@ class SessionManager:
                 self._loop
             )
 
-    def _getFileName(self, songid, original_url):
-        hash_object = hashlib.md5(original_url.encode())
+    def _getFileName(self, songid, remote_cover_url):
+        hash_object = hashlib.md5(remote_cover_url.encode())
         cache_filename = f"{hash_object.hexdigest()}.jpg"
         cache_filepath = os.path.join(ART_CACHE_DIR, cache_filename)
         return (os.path.exists(cache_filepath), f"/art/{cache_filename}", cache_filepath, cache_filename)
 
-    def _process_and_cache_art(self, songid, original_url):
+    def _process_and_cache_art(self, songid, remote_cover_url):
         (exists, relative_url, cache_filepath,
-         cache_filename) = self._getFileName(songid, original_url)
+         cache_filename) = self._getFileName(songid, remote_cover_url)
         try:
             if exists:
                 state_to_send = None
@@ -46,18 +46,18 @@ class SessionManager:
                 self._broadcast_state(state_to_send)
                 return
 
-            print(f"SESSION: caching {original_url} for {songid}")
+            print(f"SESSION: caching {remote_cover_url} for {songid}")
 
             os.makedirs(ART_CACHE_DIR, exist_ok=True)
 
             image = None
-            if original_url.startswith("file://"):
-                filepath = original_url[7:] # Strip the "file://" prefix
+            if remote_cover_url.startswith("file://"):
+                filepath = remote_cover_url[7:] # Strip the "file://" prefix
                 print(f"SESSION: Processing art for {songid} from local file: {filepath}")
                 image = Image.open(filepath)
-            elif original_url.startswith("http"):
-                print(f"SESSION: Processing art for {songid} from web URL: {source_url}")
-                img_response = requests.get(original_url, timeout=10)
+            elif remote_cover_url.startswith("http"):
+                print(f"SESSION: Processing art for {songid} from web URL: {remote_cover_url}")
+                img_response = requests.get(remote_cover_url, timeout=10)
                 img_response.raise_for_status()
                 image = Image.open(BytesIO(img_response.content))
 
