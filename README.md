@@ -70,12 +70,3 @@ In addition to state tracking, the service also processes album art by downloadi
     The service will start, initialize the players, and begin listening for connections and events.
 
 ---
-## Configuration
-
-The `config.py` file should contain the following settings:
-
-* **`TCP_SERVER_PORT`**: The port for the display board to connect to for state updates (e.g., `5555`).
-* **`WEB_SERVER_PORT`**: The port for the Flask/Waitress web server that serves cached album art (e.g., `5556`).
-* **`SHAIRPORT_PIPE_PATH`**: The absolute path to the Shairport Sync metadata pipe (e.g., `"/tmp/shairport-sync-metadata"`).
-* **`TARGET_RENDERER_NAME`**: The friendly name for the UPnP player if used (e.g., `"Apollo UPNP"`).
-
