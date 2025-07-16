@@ -61,9 +61,9 @@ In addition to state tracking, the service also processes album art by downloadi
     ```
 
 5.  **Configure the Application**
-    Create a `config.py` file and add the necessary settings.
+    Adjust `config.py` file to your needs.
 
-6.  **Run the Service**
+7.  **Run the Service**
     ```bash
     python app.py
     ```
