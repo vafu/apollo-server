@@ -1,0 +1,42 @@
+[server]
+host = "0.0.0.0"
+web_port = 5556
+tcp_port = 5557
+art_cache_dir = "/tmp/art_cache"
+
+[players.shairport]
+enabled = false
+pipe_path = "/tmp/shairport-sync-metadata"
+art_staging_dir = "/tmp/shairport_art_cache"
+retry_secs = 5
+
+[players.upnp]
+enabled = false
+renderer_name = "Apollo UPNP"
+search_retry_secs = 15
+resubscribe_secs = 1200
+
+[players.mock]
+enabled = false
+interval_secs = 8
+
+[[players.mock.tracks]]
+player_state = "playing"
+artist = "Daft Punk"
+album = "Discovery"
+title = "One More Time"
+songid = "101"
+
+[[players.mock.tracks]]
+player_state = "paused"
+artist = "Daft Punk"
+album = "Discovery"
+title = "One More Time"
+songid = "101"
+
+[[players.mock.tracks]]
+player_state = "playing"
+artist = "Gorillaz"
+album = "Demon Days"
+title = "Feel Good Inc"
+songid = "102"

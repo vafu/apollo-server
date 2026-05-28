@@ -1,72 +1,59 @@
 # Apollo Media State Service
 
-A multi-source media state aggregator and processor, designed to be a single source of truth for a [client display board](https://github.com/vafu/apollo-led-panel).
+A Rust media state aggregator for the Apollo LED panel client.
 
----
-## Overview
+The service listens to configured music player sources, normalizes their state into a single JSON shape, processes album art into a local cache, and broadcasts updates to clients over a lightweight TCP protocol.
 
-The Apollo service is a Python application that runs on a central server (e.g., a Raspberry Pi running Moode Audio). Its primary purpose is to listen to various music player daemons, consolidate their state into a single, unified format, and push real-time updates to a client device.
+## Runtime
 
-It is architected to be modular, allowing for different player "plugins" to be added. Currently, it supports listening to Shairport Sync (for AirPlay) by reading its metadata pipe. The architecture is in place to support MPD and UPnP renderers as well.
+- Web server: serves cached album art and receives UPnP event callbacks.
+- TCP server: broadcasts length-prefixed JSON state to display clients.
+- Players: Shairport Sync/AirPlay, UPnP/OpenHome, and an optional mock player.
 
-In addition to state tracking, the service also processes album art by downloading the original image, resizing it to fit the boards resolution, and caching it. It then serves these cached images on demand via a simple HTTP endpoint.
+By default, the service looks for `apollo/server.toml` under the XDG config directory:
 
----
-## Features
+- `$XDG_CONFIG_HOME/apollo/server.toml`
+- `$HOME/.config/apollo/server.toml` when `XDG_CONFIG_HOME` is unset
 
-* **Multi-Source:** Designed with a pluggable architecture to support various players (Shairport, UPnP, MPD).
-* **Event-Driven:** Uses non-blocking I/O and callbacks to react instantly to state changes from players.
-* **State Consolidation:** Provides a single, consistent JSON object to clients, regardless of the underlying music source.
-* **Image Processing & Caching:** Offloads all heavy image processing from the client. It downloads, resizes, and caches album art on the server.
-* **Efficient Communication:** Pushes state updates to clients via a lightweight, raw TCP socket using a length-prefix protocol.
-* **Web Server:** Includes a simple, multi-threaded web server to serve the cached, processed album art.
+If the file is missing, built-in defaults are used. To load a specific file:
 
----
-## Quick Setup Guide
+```bash
+APOLLO_CONFIG=/path/to/config.toml cargo run
+```
 
-1.  **Clone the Repository**
-    ```bash
-    git clone https://github.com/vafu/apollo-server.git
-    cd apollo_service
-    ```
+## Configuration
 
-2.  **Create a Virtual Environment**
-    ```bash
-    python3 -m venv .venv
-    source .venv/bin/activate
-    ```
+See `config.example.toml` for all supported options.
 
-3.  **Install System Dependencies**
-    The service relies on libraries that may need system-level build tools. On a Debian-based system (like Raspberry Pi OS), install the following:
-    ```bash
-    sudo apt-get update
-    sudo apt-get install -y build-essential python3-dev libxml2-dev libxslt1-dev libjpeg-dev
-    ```
+Each player has an `enabled` flag:
 
-4.  **Install Python Dependencies**
-    Create a `requirements.txt` file with the following content:
-    ```
-    # requirements.txt
-    waitress
-    flask
-    lxml
-    Pillow
-    requests
-    async_upnp_client
-    aiohttp
-    ```
-    Then, install the requirements:
-    ```bash
-    pip install -r requirements.txt
-    ```
+```toml
+[players.shairport]
+enabled = false
 
-5.  **Configure the Application**
-    Adjust `config.py` file to your needs.
+[players.upnp]
+enabled = false
 
-7.  **Run the Service**
-    ```bash
-    python app.py
-    ```
-    The service will start, initialize the players, and begin listening for connections and events.
+[players.mock]
+enabled = true
+```
 
----
+## Development
+
+```bash
+cargo check
+cargo run
+```
+
+The default TCP state endpoint is `0.0.0.0:5557`. TCP messages are encoded as a 4-byte big-endian payload length followed by a JSON object:
+
+```json
+{
+  "player_state": "playing",
+  "title": "One More Time",
+  "artist": "Daft Punk",
+  "album": "Discovery",
+  "cover_url": "/art/example.jpg",
+  "songid": "101"
+}
+```

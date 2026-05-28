@@ -1,4 +1,3 @@
-use crate::state::session::ART_CACHE_DIR;
 use anyhow::Result;
 use axum::{
     Router,
@@ -7,7 +6,7 @@ use axum::{
     http::StatusCode,
     routing::post,
 };
-use std::net::SocketAddr;
+use std::{net::SocketAddr, path::PathBuf};
 use tokio::sync::mpsc;
 use tower_http::services::ServeDir;
 
@@ -22,10 +21,15 @@ struct AppState {
     event_tx: mpsc::Sender<UpnpEvent>,
 }
 
-pub async fn serve(host: &str, port: u16, event_tx: mpsc::Sender<UpnpEvent>) -> Result<()> {
+pub async fn serve(
+    host: &str,
+    port: u16,
+    art_cache_dir: PathBuf,
+    event_tx: mpsc::Sender<UpnpEvent>,
+) -> Result<()> {
     let state = AppState { event_tx };
     let app = Router::new()
-        .nest_service("/art", ServeDir::new(ART_CACHE_DIR))
+        .nest_service("/art", ServeDir::new(art_cache_dir))
         .route("/upnp/events/{source}", post(upnp_event))
         .with_state(state);
 

@@ -1,9 +1,10 @@
 use crate::{
-    config,
-    state::session::{Metadata, SessionManager},
+    config::UpnpConfig,
+    state::{Metadata, PlayerState, SessionManager},
     web::endpoints::UpnpEvent,
 };
 use anyhow::{Context, Result, anyhow};
+use async_trait::async_trait;
 use reqwest::{Method, Url, header::HeaderMap};
 use std::{
     collections::HashMap,
@@ -12,15 +13,10 @@ use std::{
 };
 use tokio::sync::mpsc;
 
+use super::{Player, UpnpPlayer};
+
 const INFO_SERVICE_ID: &str = "urn:av-openhome-org:service:Info:1";
 const PLAYLIST_SERVICE_ID: &str = "urn:av-openhome-org:service:Playlist:1";
-
-pub struct UpnpPlayer {
-    renderer_name: String,
-    session_manager: SessionManager,
-    event_rx: mpsc::Receiver<UpnpEvent>,
-    http_client: reqwest::Client,
-}
 
 #[derive(Clone, Debug)]
 struct ServiceEndpoint {
@@ -36,34 +32,59 @@ struct Subscription {
 
 impl UpnpPlayer {
     pub fn new(
-        renderer_name: impl Into<String>,
+        config: UpnpConfig,
+        web_port: u16,
         session_manager: SessionManager,
         event_rx: mpsc::Receiver<UpnpEvent>,
     ) -> Self {
         Self {
-            renderer_name: renderer_name.into(),
+            config,
+            web_port,
             session_manager,
             event_rx,
             http_client: reqwest::Client::new(),
         }
     }
+}
 
-    pub async fn start(mut self) {
+#[async_trait]
+impl Player for UpnpPlayer {
+    fn name(&self) -> &'static str {
+        "upnp"
+    }
+
+    fn enabled(&self) -> bool {
+        self.config.enabled
+    }
+
+    async fn start(self: Box<Self>) -> Result<()> {
+        let mut player = *self;
+
+        if !player.config.enabled {
+            println!("UPnP: disabled.");
+            return Ok(());
+        }
+
         loop {
-            if let Err(err) = self.run_once().await {
+            if let Err(err) = player.run_once().await {
                 println!("UPnP Error/Retry: {err:#}");
             }
             tokio::time::sleep(Duration::from_secs(5)).await;
         }
     }
+}
 
+impl UpnpPlayer {
     async fn run_once(&mut self) -> Result<()> {
         println!("UPnP: Searching for devices...");
         let device = match self.find_target_device().await? {
             Some(device) => device,
             None => {
-                println!("UPnP: Target renderer not found in search results. Retrying in 15s.");
-                tokio::time::sleep(Duration::from_secs(15)).await;
+                println!(
+                    "UPnP: Target renderer not found in search results. Retrying in {}s.",
+                    self.config.search_retry_secs
+                );
+                tokio::time::sleep(Duration::from_secs(self.config.search_retry_secs)).await;
                 return Ok(());
             }
         };
@@ -71,11 +92,7 @@ impl UpnpPlayer {
         println!("UPnP: Target renderer found");
         let local_ip = local_ip_for(device.location.host_str().unwrap_or_default())
             .unwrap_or_else(|| "127.0.0.1".to_string());
-        let callback_base = format!(
-            "http://{}:{}/upnp/events",
-            local_ip,
-            config::WEB_SERVER_PORT
-        );
+        let callback_base = format!("http://{}:{}/upnp/events", local_ip, self.web_port);
 
         let mut subscriptions = Vec::new();
         for endpoint in device.services {
@@ -87,7 +104,8 @@ impl UpnpPlayer {
             subscriptions.push(Subscription { sid, endpoint });
         }
 
-        let mut resubscribe_interval = tokio::time::interval(Duration::from_secs(20 * 60));
+        let mut resubscribe_interval =
+            tokio::time::interval(Duration::from_secs(self.config.resubscribe_secs));
         loop {
             tokio::select! {
                 _ = resubscribe_interval.tick() => {
@@ -125,7 +143,7 @@ impl UpnpPlayer {
                 continue;
             };
 
-            match parse_device_description(&url, &xml, &self.renderer_name) {
+            match parse_device_description(&url, &xml, &self.config.renderer_name) {
                 Ok(Some(device)) => return Ok(Some(device)),
                 Ok(None) => {}
                 Err(err) => println!("UPnP: cannot parse device at {url}: {err:#}"),
@@ -167,9 +185,16 @@ impl UpnpPlayer {
         match parse_event_vars(&event.body) {
             Ok(vars) => {
                 if let Some(transport_state) = vars.get("TransportState") {
-                    self.session_manager
-                        .update_transport_state("UPNP", transport_state)
-                        .await;
+                    match PlayerState::parse(transport_state) {
+                        Some(transport_state) => {
+                            self.session_manager
+                                .update_transport_state("UPNP", transport_state)
+                                .await;
+                        }
+                        None => {
+                            println!("UPnP: Ignoring unknown transport state {transport_state}")
+                        }
+                    }
                 }
                 if let Some(metadata_xml) = vars.get("Metadata") {
                     match parse_track_metadata(metadata_xml) {

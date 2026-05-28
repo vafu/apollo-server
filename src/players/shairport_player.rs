@@ -1,48 +1,74 @@
-use crate::state::session::{Metadata, SessionManager};
+use crate::{
+    config::ShairportConfig,
+    state::{Metadata, PlayerState, SessionManager},
+};
 use anyhow::{Context, Result};
+use async_trait::async_trait;
 use base64::{Engine, engine::general_purpose::STANDARD};
-use std::{collections::HashMap, fs, os::unix::fs::OpenOptionsExt, path::Path};
+use std::{fs, os::unix::fs::OpenOptionsExt, path::PathBuf};
 use tokio::io::AsyncReadExt;
 
-const PLAYER_CACHE_DIR: &str = "/tmp/shairport_art_cache";
+use super::{Player, ShairportPlayer};
+
 const TRANSPORT_CODES: &[&str] = &["prsm", "paus", "pend"];
 const METADATA_CODES: &[&str] = &["asar", "minm", "PICT", "mden", "mdst"];
 
-pub struct ShairportPlayer {
-    pipe_path: String,
-    session_manager: SessionManager,
-    buffer: String,
-    staged_track_info: HashMap<String, Vec<u8>>,
+impl ShairportPlayer {
+    pub fn new(config: ShairportConfig, session_manager: SessionManager) -> Self {
+        Self {
+            config,
+            session_manager,
+            buffer: String::new(),
+            staged_track_info: Default::default(),
+        }
+    }
+}
+
+#[async_trait]
+impl Player for ShairportPlayer {
+    fn name(&self) -> &'static str {
+        "shairport"
+    }
+
+    fn enabled(&self) -> bool {
+        self.config.enabled
+    }
+
+    async fn start(self: Box<Self>) -> Result<()> {
+        let mut player = *self;
+
+        if !player.config.enabled {
+            println!("SHAIRPORT: disabled.");
+            return Ok(());
+        }
+
+        loop {
+            if let Err(err) = player.run_once().await {
+                println!("SHAIRPORT: Main loop error: {err:#}");
+            }
+            player.buffer.clear();
+            println!(
+                "SHAIRPORT: Cleanup complete. Retrying in {}s.",
+                player.config.retry_secs
+            );
+            tokio::time::sleep(std::time::Duration::from_secs(player.config.retry_secs)).await;
+        }
+    }
 }
 
 impl ShairportPlayer {
-    pub fn new(pipe_path: impl Into<String>, session_manager: SessionManager) -> Self {
-        Self {
-            pipe_path: pipe_path.into(),
-            session_manager,
-            buffer: String::new(),
-            staged_track_info: HashMap::new(),
-        }
-    }
-
-    pub async fn start(mut self) {
-        loop {
-            if let Err(err) = self.run_once().await {
-                println!("SHAIRPORT: Main loop error: {err:#}");
-            }
-            self.buffer.clear();
-            println!("SHAIRPORT: Cleanup complete. Retrying in 5s.");
-            tokio::time::sleep(std::time::Duration::from_secs(5)).await;
-        }
-    }
-
     async fn run_once(&mut self) -> Result<()> {
-        println!("SHAIRPORT: Opening pipe at {}...", self.pipe_path);
+        println!(
+            "SHAIRPORT: Opening pipe at {}...",
+            self.config.pipe_path.display()
+        );
         let file = std::fs::OpenOptions::new()
             .read(true)
             .custom_flags(0o4000)
-            .open(&self.pipe_path)
-            .with_context(|| format!("opening metadata pipe {}", self.pipe_path))?;
+            .open(&self.config.pipe_path)
+            .with_context(|| {
+                format!("opening metadata pipe {}", self.config.pipe_path.display())
+            })?;
         let mut file = tokio::fs::File::from_std(file);
         println!("SHAIRPORT: Pipe reader registered. Waiting for events.");
 
@@ -112,7 +138,7 @@ impl ShairportPlayer {
             let cover_url = self
                 .staged_track_info
                 .get("PICT")
-                .and_then(|data| save_pict_data(&songid, data).ok());
+                .and_then(|data| save_pict_data(&self.config.art_staging_dir, &songid, data).ok());
 
             self.session_manager
                 .update_metadata(
@@ -168,19 +194,19 @@ fn decode_hex(input: &str) -> Result<Vec<u8>> {
     Ok(out)
 }
 
-fn transport_state(code: &str) -> Option<&'static str> {
+fn transport_state(code: &str) -> Option<PlayerState> {
     match code {
-        "prsm" => Some("playing"),
-        "pend" => Some("stopped"),
-        "paus" => Some("paused"),
+        "prsm" => Some(PlayerState::Playing),
+        "pend" => Some(PlayerState::Stopped),
+        "paus" => Some(PlayerState::Paused),
         _ => None,
     }
 }
 
-fn save_pict_data(songid: &str, image_bytes: &[u8]) -> Result<String> {
-    fs::create_dir_all(PLAYER_CACHE_DIR)?;
+fn save_pict_data(art_staging_dir: &PathBuf, songid: &str, image_bytes: &[u8]) -> Result<String> {
+    fs::create_dir_all(art_staging_dir)?;
     let filename = format!("{:x}.tmp", md5::compute(songid.as_bytes()));
-    let filepath = Path::new(PLAYER_CACHE_DIR).join(filename);
+    let filepath = art_staging_dir.join(filename);
     if !filepath.exists() {
         fs::write(&filepath, image_bytes)?;
     }
