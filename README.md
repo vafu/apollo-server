@@ -8,7 +8,7 @@ The service listens to configured music player sources, normalizes their state i
 
 - Web server: serves cached album art and receives UPnP event callbacks.
 - TCP server: broadcasts length-prefixed JSON state to display clients.
-- Players: Shairport Sync/AirPlay, UPnP/OpenHome, and an optional mock player.
+- Players: Shairport Sync/AirPlay, UPnP/OpenHome, Sendspin, and an optional mock player.
 
 By default, the service looks for `apollo/server.toml` under the XDG config directory:
 
@@ -34,6 +34,10 @@ enabled = false
 [players.upnp]
 enabled = false
 
+[players.sendspin]
+enabled = false
+server = "pluto:8095"
+
 [players.mock]
 enabled = true
 ```
@@ -43,6 +47,12 @@ enabled = true
 ```bash
 cargo check
 cargo run
+```
+
+To see Sendspin crate internals:
+
+```bash
+RUST_LOG=sendspin=debug,artfetcher=debug cargo run
 ```
 
 The default TCP state endpoint is `0.0.0.0:5557`. TCP messages are encoded as a 4-byte big-endian payload length followed by a JSON object:

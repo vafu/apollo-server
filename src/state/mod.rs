@@ -46,6 +46,7 @@ pub struct UnifiedState {
 
 #[derive(Clone, Debug, Default)]
 pub struct Metadata {
+    pub player_state: Option<PlayerState>,
     pub songid: Option<String>,
     pub title: Option<String>,
     pub artist: Option<String>,

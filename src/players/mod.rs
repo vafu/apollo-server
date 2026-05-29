@@ -1,5 +1,5 @@
 use crate::{
-    config::{MockConfig, ShairportConfig, UpnpConfig},
+    config::{MockConfig, SendspinConfig, ShairportConfig, UpnpConfig},
     state::SessionManager,
     web::endpoints::UpnpEvent,
 };
@@ -9,6 +9,7 @@ use std::collections::HashMap;
 use tokio::sync::mpsc;
 
 pub mod mock_player;
+pub mod sendspin_player;
 pub mod shairport_player;
 pub mod upnp_player;
 
@@ -29,6 +30,11 @@ pub struct ShairportPlayer {
     session_manager: SessionManager,
     buffer: String,
     staged_track_info: HashMap<String, Vec<u8>>,
+}
+
+pub struct SendspinPlayer {
+    config: SendspinConfig,
+    session_manager: SessionManager,
 }
 
 pub struct UpnpPlayer {

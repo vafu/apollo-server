@@ -319,6 +319,7 @@ fn parse_track_metadata(track_metadata_xml: &str) -> Result<Metadata> {
         .map(str::to_string);
 
     Ok(Metadata {
+        player_state: None,
         title,
         artist,
         cover_url,

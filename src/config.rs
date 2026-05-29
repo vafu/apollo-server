@@ -97,6 +97,7 @@ impl Default for ServerConfig {
 pub struct PlayersConfig {
     pub shairport: ShairportConfig,
     pub upnp: UpnpConfig,
+    pub sendspin: SendspinConfig,
     pub mock: MockConfig,
 }
 
@@ -105,6 +106,7 @@ impl Default for PlayersConfig {
         Self {
             shairport: ShairportConfig::default(),
             upnp: UpnpConfig::default(),
+            sendspin: SendspinConfig::default(),
             mock: MockConfig::default(),
         }
     }
@@ -146,6 +148,26 @@ impl Default for UpnpConfig {
             renderer_name: "Apollo UPNP".to_string(),
             search_retry_secs: 15,
             resubscribe_secs: 20 * 60,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(default)]
+pub struct SendspinConfig {
+    pub enabled: bool,
+    pub server: String,
+    pub client_id: String,
+    pub name: String,
+}
+
+impl Default for SendspinConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            server: "pluto:8095".to_string(),
+            client_id: "apollo-server".to_string(),
+            name: "Apollo Server".to_string(),
         }
     }
 }
@@ -228,6 +250,8 @@ mod tests {
         assert_eq!(config.server.web_port, 5556);
         assert!(!config.players.shairport.enabled);
         assert!(!config.players.upnp.enabled);
+        assert!(!config.players.sendspin.enabled);
+        assert_eq!(config.players.sendspin.server, "pluto:8095");
         assert!(!config.players.mock.enabled);
         assert_eq!(config.players.mock.tracks.len(), 3);
     }
@@ -245,6 +269,7 @@ mod tests {
         assert_eq!(config.server.tcp_port, 5557);
         assert!(!config.players.shairport.enabled);
         assert!(!config.players.upnp.enabled);
+        assert!(!config.players.sendspin.enabled);
         assert!(!config.players.mock.enabled);
     }
 

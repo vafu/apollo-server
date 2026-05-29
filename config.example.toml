@@ -16,6 +16,12 @@ renderer_name = "Apollo UPNP"
 search_retry_secs = 15
 resubscribe_secs = 1200
 
+[players.sendspin]
+enabled = false
+server = "pluto:8095"
+client_id = "apollo-server"
+name = "Apollo Server"
+
 [players.mock]
 enabled = false
 interval_secs = 8

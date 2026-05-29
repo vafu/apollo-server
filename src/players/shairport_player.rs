@@ -144,6 +144,7 @@ impl ShairportPlayer {
                 .update_metadata(
                     "AirPlay",
                     Metadata {
+                        player_state: None,
                         songid: Some(songid),
                         title: Some(title),
                         artist: Some(artist),

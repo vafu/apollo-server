@@ -48,10 +48,6 @@ impl Player for MockPlayer {
                 .session_manager
                 .update_metadata("MOCK", metadata_from_track(track))
                 .await;
-            player
-                .session_manager
-                .update_transport_state("MOCK", track.player_state)
-                .await;
 
             index = (index + 1) % player.config.tracks.len();
             tokio::time::sleep(Duration::from_secs(player.config.interval_secs)).await;
@@ -61,6 +57,7 @@ impl Player for MockPlayer {
 
 fn metadata_from_track(track: &MockTrackConfig) -> Metadata {
     Metadata {
+        player_state: Some(track.player_state),
         songid: Some(track.songid.clone()),
         title: Some(track.title.clone()),
         artist: Some(track.artist.clone()),

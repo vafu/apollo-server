@@ -1,4 +1,5 @@
 use anyhow::Result;
+use log::{debug, info, warn};
 use serde::Serialize;
 use std::{net::SocketAddr, sync::Arc};
 use tokio::{
@@ -40,15 +41,15 @@ impl TcpServer {
     pub async fn start(self: Arc<Self>) -> Result<()> {
         let addr = format!("{}:{}", self.host, self.port);
         let listener = TcpListener::bind(&addr).await?;
-        println!("TCP Server: Serving on {}", listener.local_addr()?);
+        info!("TCP: serving on {}", listener.local_addr()?);
 
         loop {
             let (stream, addr) = listener.accept().await?;
-            println!("TCP Server: Accepted connection from {addr}");
+            debug!("TCP: accepted connection from {addr}");
             let server = Arc::clone(&self);
             tokio::spawn(async move {
                 if let Err(err) = server.handle_client(stream, addr).await {
-                    println!("TCP Server: Client {addr} error: {err}");
+                    warn!("TCP: client {addr} error: {err}");
                 }
             });
         }
@@ -79,7 +80,7 @@ impl TcpServer {
             }
         }
 
-        println!("TCP Server: Closing connection for {addr}");
+        debug!("TCP: closing connection for {addr}");
         Ok(())
     }
 }
